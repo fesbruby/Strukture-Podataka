@@ -49,6 +49,7 @@ int main()
 			case '5':
 				BrisiEl(&Head);
 				Ispis(&Head);
+				break;
 			case '0':
 				break;
 			default:
