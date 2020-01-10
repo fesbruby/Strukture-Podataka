@@ -1,103 +1,263 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include<stdio.h>
 #include<stdlib.h>
-#define MAX_LINE 50
-typedef struct {
-	char ime[MAX_LINE];
-	char prezime[MAX_LINE];
-	int apsBr;
-	double relBr;
-}student;
-int Izbroji(char*);
-int Upisi(student*, char*,int);
-int MaxBod(student*, int);
-int relativni(student*, int, int);
-int Ispis(student*, int);
-int main()
-{
-	int br,max;
-	student* s;
-	char imeDat[] = "studenti.txt";
-	br = Izbroji(imeDat);
-	s = (student*)malloc(sizeof(student)*br);
-	Upisi(s, imeDat,br);
-	max=MaxBod(s, br);
-	relativni(s, br, max);
-	Ispis(s, br);
+#include<string.h>
+#define MAX 100
+struct Element;
+typedef struct Element* pok;
+typedef struct Element {
+	char ime[MAX];
+	pok sibling;
+	pok child;
+}element;
+struct Status;
+typedef struct Status* Pozicija;
+typedef struct Status {
+	pok el;
+	Pozicija next;
+}status;
+int mkdir(Pozicija, Pozicija, char*);
+int mkRoot(pok, Pozicija, Pozicija, char*);
+int push(Pozicija, pok);
+pok pop(Pozicija);
+int ispis(Pozicija);
+int vracanjeUnatrag(Pozicija, Pozicija);
+int cdDir(Pozicija, Pozicija,pok,char*);
+int izbrisi(Pozicija);
+int Odabir(pok, pok, Pozicija, Pozicija);
+pok trazi(Pozicija, Pozicija,pok,pok,char*);
+int main() {
+	status stog;
+	status razina;
+	element stablo;
+	pok pocetak = NULL;
+	stog.next = NULL;
+	razina.next = NULL;
+	mkRoot(&stablo, &stog, &razina, "C:");
+	pocetak = &stablo;
+	Odabir(&stablo, pocetak, &stog, &razina);
+	izbrisi(&stog);
+	izbrisi(&razina);
 	system("pause");
 	return 0;
-
 }
-
-int Izbroji(char* ime)
+int mkRoot(pok s, Pozicija stog, Pozicija razina, char* im)
 {
-	int n = 0;
-	char buffer[MAX_LINE] = { 0 };
-	FILE* ul;
-	ul = fopen(ime, "r");
-	if (ul == NULL)
+	s->sibling = NULL;
+	s->child = NULL;
+	strcpy(s->ime, im);
+	push(stog, s);
+	push(razina, s);
+	return 0;
+}
+int mkdir(Pozicija stog, Pozicija razina, char *im) {
+	pok n = NULL;
+	pok temp = NULL;
+	pok trenutni = NULL;
+	trenutni = pop(stog);
+	if (trenutni == NULL)
 	{
-		printf("Greska pri otvaranju datoteke.\n");
+		printf("Greska. Stog je prazan.\n");
 		return -1;
 	}
-	else
-	{
-		while (!feof(ul))
-		{
-			fgets(buffer, MAX_LINE, ul);
-			n++;
-		}
-		fclose(ul);
-		return n-1;
+	n = (pok)malloc(sizeof(element));
+	if (n == NULL) {
+		printf("Greska pri alokaciji memorije");
+		return -1;
 	}
+	strcpy(n->ime, im);
+	if (trenutni->child == NULL)
+	{
+		trenutni->child = n;
+		n->sibling = NULL;
+		n->child = NULL;
+		trenutni->child = n;
+		push(stog, trenutni);
+		push(stog, n);
+		push(razina, trenutni);
+	}
+	else {
+		temp = trenutni->child;
+		trenutni->child = n;
+		n->child = NULL;
+		n->sibling = temp;
+		push(stog, trenutni);
+		push(stog, n);
+		push(razina, trenutni);
+	}
+	return 0;
 }
-int Upisi(student* s, char* ime,int n)
+int push(Pozicija stog, pok p)
 {
-	FILE* ul;
+	Pozicija q = NULL;
+	q = (Pozicija)malloc(sizeof(status));
+	if (q == NULL)
+	{
+		printf("Greska pri alokaciji memorije.\n");
+		return -1;
+	}
+	q->el = p;
+	q->next = stog->next;
+	stog->next = q;
+	return 0;
+}
+
+pok pop(Pozicija stog)
+{
+	pok a = NULL;
+	Pozicija temp = NULL;
+	if (stog->next == NULL)
+		return NULL;
+	a = stog->next->el;
+	temp = stog->next;
+	stog->next = temp->next;
+	free(temp);
+	return a;
+
+}
+
+int ispis(Pozicija stog)
+{
+	if (stog->next != NULL)
+		ispis(stog->next);
+	printf("%s\n", stog->el->ime);
+	return 0;
+}
+
+int vracanjeUnatrag(Pozicija stog, Pozicija razina)
+{
+	pok temp1 = NULL;
+	pok temp2 = NULL;
+	temp1 = pop(razina);
+	if (temp1 == NULL)
+	{
+		printf("Greska. Stog je prazan.\n");
+		return -1;
+	}
+	printf("Trenutno se nalazite u direktoriju %s.\n", temp1->ime);
+	temp2 = pop(stog);
+	if (temp2 == NULL)
+	{
+		printf("Greska. Stog je prazan.\n");
+		return -1;
+	}
+	while (strcmp(temp2->ime, temp1->ime) != 0)
+		temp2 = pop(stog);
+	push(stog, temp2);
+	return 0;
+}
+
+
+int cdDir(Pozicija stog, Pozicija razina, pok pocetak, char* im)
+{
+	pok a = pocetak;
+	pok temp = NULL;
+	izbrisi(stog);
+	izbrisi(razina);
+	push(stog, a);
+	push(razina, a);
+	temp=trazi(stog, razina,a,NULL,im);
+	if (temp == NULL)
+	{
+		izbrisi(stog);
+		izbrisi(razina);
+		push(stog, pocetak);
+		push(razina, pocetak);
+		printf("Trazeni direktoriji ne postoji. Trenutno se nalazite u direktoriju: %s\n", pocetak->ime);
+	}
+	else
+		printf("Trenutno se nalazite u direktoriju: %s\n", temp->ime);
+	
+}
+
+
+int izbrisi(Pozicija p)
+{
+	Pozicija temp = p;
+	while (temp->next != NULL) {
+		p = temp;
+		while (p->next->next != NULL)
+			p = p->next;
+		free(p->next);
+		p->next = NULL;
+	}
+	return 0;
+}
+
+int Odabir(pok s, pok pocetak, Pozicija stog, Pozicija razina)
+{
 	int i = 0;
-	ul = fopen(ime, "r");
-	if (ul == NULL)
-	{
-		printf("Greska pri otvaranju datoteke.\n");
-		return -1;
-	}
-	else
-	{
-		for(i=0;i<n;i++)
+	char str1[MAX];
+	char str2[MAX];
+	while (i == 0) {
+		printf("Unesite naredbu:\n\tmd - unos direktorija u trenutni direktoriji\n\tdir - ispis trenutnog direktorija\n\tcd - promjena trenutnog direktorija(na kraju unosa patha unesite *)\n\tcd .. - vracanje u parent direktoriji\n\tizlaz - izlaz\n");
+		scanf(" %s", str1);
+		if (strcmp(str1, "md") == 0)
 		{
-			fscanf(ul, " %s %s %d", s[i].ime, s[i].prezime, &s[i].apsBr);
+			scanf(" %s", str2);
+			mkdir(stog, razina, str2);
+			ispis(stog->next);
 		}
-		fclose(ul);
-		return 1;
+		else if (strcmp(str1, "dir") == 0)
+		{
+			ispis(stog->next);
+		}
+		else if (strcmp(str1, "cd") == 0)
+		{
+			scanf(" %s", str2);
+			if (strcmp(str2, "..") == 0) {
+				vracanjeUnatrag(stog, razina);
+				ispis(stog->next);
+			}
+			else {
+				cdDir(stog, razina, pocetak, str2);
+				ispis(stog->next);
+			}
+		}
+		else if (strcmp(str1, "izlaz") == 0) {
+			i = 1;
+			return 0;
+		}
+		else {
+			printf("Greska pri unosu.Pokusaj ponovo.\n");
+		}
 	}
+	return 0;
 }
 
-int MaxBod(student* s, int n)
+
+pok trazi(Pozicija stog, Pozicija razina,pok trenutni,pok temp,char* t)
 {
-	int i;
-	int max;
-	max = s[0].apsBr;
-	for (i = 1; i < n; i++)
+	if (trenutni == NULL)
+		return NULL;
+	if (strcmp(trenutni->ime, t) == 0)
 	{
-		if (max < s[i].apsBr)
-			max = s[i].apsBr;
+		temp = trenutni;
+		return trenutni;
 	}
-	return max;
+	if (trenutni->child != NULL&&temp==NULL)
+	{
+		push(stog, trenutni->child);
+		push(razina, trenutni->child);
+		temp=trazi(stog,razina,trenutni->child,temp,t);
+		if (temp == NULL)
+		{
+			pop(stog);
+			pop(razina);
+		}
+		else return temp;
+		
+	}
+	if (trenutni->sibling != NULL&&temp==NULL)
+	{
+		push(stog, trenutni->sibling);
+		temp=trazi(stog, razina, trenutni->sibling,temp, t);
+		if (temp != NULL)
+			return temp;
+	}
+	return temp;
+
 }
 
-int relativni(student *s, int n, int max)
-{
-	int i;
-	for (i = 0; i < n; i++)
-		s[i].relBr = (double)s[i].apsBr / (double)max * 100;
-	return 1;
-}
 
-int Ispis(student* s, int n)
-{
-	int i;
-	printf("Ime i prezime:        Apsolutni bod.:        Relativni bod.:\n");
-	for (i = 0; i < n; i++)
-		printf("%5s %5s       %10d                    %10f\n", s[i].ime, s[i].prezime, s[i].apsBr, s[i].relBr);
-	return 1;
-}
+
